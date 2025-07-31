@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}CampusLink - Welcome{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero">
+    <div class="hero-content">
+        <div class="hero-text">
+            <h1>Welcome to <span class="highlight">CampusLink</span></h1>
+            <p>Your centralized student utility hub that streamlines essential campus services, improves communication, and enhances your daily productivity.</p>
+            <div class="hero-buttons">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                    <i class="fas fa-rocket"></i> Get Started
+                </a>
+                <a href="{{ url_for('login') }}" class="btn btn-secondary">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </a>
+            </div>
+        </div>
+        <div class="hero-image">
+            <div class="hero-card">
+                <i class="fas fa-graduation-cap"></i>
+                <h3>Student Life Made Easy</h3>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="features">
+    <div class="container">
+        <h2 class="section-title">Powerful Features for Campus Life</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-bullhorn"></i>
+                </div>
+                <h3>Campus Announcements</h3>
+                <p>Stay updated with important campus news, events, exam schedules, and holiday notices.</p>
+                <a href="{{ url_for('announcements') }}" class="feature-link">Explore <i class="fas fa-arrow-right"></i></a>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-search"></i>
+                </div>
+                <h3>Lost & Found</h3>
+                <p>Report lost items or help others find their belongings with our smart filtering system.</p>
+                <a href="{{ url_for('lost_found') }}" class="feature-link">Explore <i class="fas fa-arrow-right"></i></a>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-calendar"></i>
+                </div>
+                <h3>Timetable Scheduler</h3>
+                <p>Organize your weekly class schedule with our intuitive calendar interface.</p>
+                <a href="{{ url_for('timetable') }}" class="feature-link">Explore <i class="fas fa-arrow-right"></i></a>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <h3>Hostel Complaints</h3>
+                <p>Register and track complaints about hostel facilities with real-time status updates.</p>
+                <a href="{{ url_for('complaints') }}" class="feature-link">Explore <i class="fas fa-arrow-right"></i></a>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <h3>Skill Exchange</h3>
+                <p>Share your skills and learn from peers through our collaborative learning marketplace.</p>
+                <a href="{{ url_for('skills') }}" class="feature-link">Explore <i class="fas fa-arrow-right"></i></a>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-newspaper"></i>
+                </div>
+                <h3>Tech News & Opportunities</h3>
+                <p>Stay competitive with curated tech news, hackathons, and internship opportunities.</p>
+                <a href="{{ url_for('news') }}" class="feature-link">Explore <i class="fas fa-arrow-right"></i></a>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-poll"></i>
+                </div>
+                <h3>Polls & Feedback</h3>
+                <p>Participate in campus polls and provide feedback to improve student services.</p>
+                <a href="{{ url_for('polls') }}" class="feature-link">Explore <i class="fas fa-arrow-right"></i></a>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h3>Secure Authentication</h3>
+                <p>Role-based access control with Firebase security for students and administrators.</p>
+                <a href="{{ url_for('login') }}" class="feature-link">Login <i class="fas fa-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="stats">
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number">1000+</div>
+                <div class="stat-label">Active Students</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">50+</div>
+                <div class="stat-label">Daily Announcements</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">200+</div>
+                <div class="stat-label">Items Found</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">95%</div>
+                <div class="stat-label">Satisfaction Rate</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta">
+    <div class="container">
+        <div class="cta-content">
+            <h2>Ready to Transform Your Campus Experience?</h2>
+            <p>Join thousands of students who are already using CampusLink to streamline their academic life.</p>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-large">
+                <i class="fas fa-rocket"></i> Start Your Journey
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

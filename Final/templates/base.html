@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CampusLink - Student Utility Hub{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-graduation-cap"></i>
+                <span>CampusLink</span>
+            </div>
+            
+            <div class="nav-menu" id="navMenu">
+                <a href="{{ url_for('dashboard') }}" class="nav-link">
+                    <i class="fas fa-home"></i> Dashboard
+                </a>
+                <a href="{{ url_for('announcements') }}" class="nav-link">
+                    <i class="fas fa-bullhorn"></i> Announcements
+                </a>
+                <a href="{{ url_for('lost_found') }}" class="nav-link">
+                    <i class="fas fa-search"></i> Lost & Found
+                </a>
+                <a href="{{ url_for('timetable') }}" class="nav-link" id="timetableLink">
+                    <i class="fas fa-calendar"></i> Timetable
+                </a>
+                <a href="{{ url_for('complaints') }}" class="nav-link">
+                    <i class="fas fa-exclamation-triangle"></i> Complaints
+                </a>
+                <a href="{{ url_for('skills') }}" class="nav-link">
+                    <i class="fas fa-users"></i> Skills
+                </a>
+                <a href="{{ url_for('news') }}" class="nav-link">
+                    <i class="fas fa-newspaper"></i> Tech News
+                </a>
+                <a href="{{ url_for('polls') }}" class="nav-link">
+                    <i class="fas fa-poll"></i> Polls
+                </a>
+                
+                <!-- User Info and Logout (shown when logged in) -->
+                <div class="user-info" id="userInfo" style="display: none;">
+                    <span class="user-role" id="userRole"></span>
+                    <span class="user-name" id="userName"></span>
+                    <button class="nav-link logout-btn" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+                
+                <!-- Login button (shown when not logged in) -->
+                <a href="{{ url_for('login') }}" class="nav-link login-btn" id="loginBtn">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </a>
+            </div>
+            
+            <div class="nav-toggle" id="navToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3><i class="fas fa-graduation-cap"></i> CampusLink</h3>
+                <p>Your centralized student utility hub for a better campus experience.</p>
+            </div>
+            <div class="footer-section">
+                <h4>Quick Links</h4>
+                <ul>
+                    <li><a href="{{ url_for('announcements') }}">Announcements</a></li>
+                    <li><a href="{{ url_for('lost_found') }}">Lost & Found</a></li>
+                    <li><a href="{{ url_for('timetable') }}">Timetable</a></li>
+                    <li><a href="{{ url_for('complaints') }}">Complaints</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Contact</h4>
+                <p><i class="fas fa-envelope"></i> support@campuslink.edu</p>
+                <p><i class="fas fa-phone"></i> +1 (555) 123-4567</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 CampusLink. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <script>
+    // Role-based navigation management
+    document.addEventListener('DOMContentLoaded', function() {
+        updateNavigation();
+    });
+    
+    function updateNavigation() {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const userInfo = document.getElementById('userInfo');
+        const loginBtn = document.getElementById('loginBtn');
+        const userRole = document.getElementById('userRole');
+        const userName = document.getElementById('userName');
+        
+        if (user.email) {
+            // User is logged in
+            userInfo.style.display = 'flex';
+            loginBtn.style.display = 'none';
+            
+            userRole.textContent = user.role === 'admin' ? 'Admin' : 'Student';
+            userRole.className = `user-role ${user.role}`;
+            userName.textContent = user.name || user.email;
+            
+            // Show/hide features based on role
+            if (user.role === 'student') {
+                // Students can see timetable
+                document.getElementById('timetableLink').style.display = 'block';
+            } else {
+                // Admins don't need personal timetable
+                document.getElementById('timetableLink').style.display = 'none';
+            }
+        } else {
+            // User is not logged in
+            userInfo.style.display = 'none';
+            loginBtn.style.display = 'block';
+        }
+    }
+    
+    function logout() {
+        localStorage.removeItem('user');
+        showNotification('Logged out successfully!', 'success');
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 1000);
+    }
+    
+    // Check if user is logged in for protected pages
+    function requireAuth() {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (!user.email) {
+            showNotification('Please login to access this page', 'error');
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 1500);
+            return false;
+        }
+        return true;
+    }
+    
+    // Check if user is admin
+    function requireAdmin() {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (!user.email || user.role !== 'admin') {
+            showNotification('Admin access required', 'error');
+            return false;
+        }
+        return true;
+    }
+    
+    // Get current user
+    function getCurrentUser() {
+        return JSON.parse(localStorage.getItem('user') || '{}');
+    }
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,706 @@
+{% extends "base.html" %}
+
+{% block title %}Skill Exchange - CampusLink{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <div class="header-content">
+            <h1><i class="fas fa-users"></i> Skill Exchange Marketplace</h1>
+            <p>Share your skills and learn from peers through collaborative learning sessions</p>
+        </div>
+        <button class="btn btn-primary" onclick="openSkillModal()">
+            <i class="fas fa-plus"></i> Offer Skill
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-section">
+        <div class="filters">
+            <div class="filter-group">
+                <label for="categoryFilter">Category:</label>
+                <select id="categoryFilter" onchange="filterSkills()">
+                    <option value="">All Categories</option>
+                    <option value="programming">Programming</option>
+                    <option value="design">Design</option>
+                    <option value="languages">Languages</option>
+                    <option value="music">Music</option>
+                    <option value="academic">Academic</option>
+                    <option value="sports">Sports</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="priceFilter">Price:</label>
+                <select id="priceFilter" onchange="filterSkills()">
+                    <option value="">All Prices</option>
+                    <option value="free">Free</option>
+                    <option value="paid">Paid</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="sortFilter">Sort by:</label>
+                <select id="sortFilter" onchange="filterSkills()">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="category">Category</option>
+                    <option value="price">Price</option>
+                </select>
+            </div>
+            <div class="search-group">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search skills..." onkeyup="filterSkills()">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skills List -->
+    <div class="skills-container">
+        <div id="skillsList" class="skills-list">
+            <div class="loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading skills...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Skill Modal -->
+<div id="skillModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">Offer Your Skill</h3>
+            <button class="modal-close" onclick="closeSkillModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="skillForm" class="modal-form">
+            <div class="form-group">
+                <label for="skillTitle">Skill Title *</label>
+                <input type="text" id="skillTitle" name="title" required placeholder="e.g., Python Programming, Guitar Lessons">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="skillCategory">Category *</label>
+                    <select id="skillCategory" name="category" required>
+                        <option value="">Select Category</option>
+                        <option value="programming">Programming</option>
+                        <option value="design">Design</option>
+                        <option value="languages">Languages</option>
+                        <option value="music">Music</option>
+                        <option value="academic">Academic</option>
+                        <option value="sports">Sports</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="skillDuration">Session Duration</label>
+                    <select id="skillDuration" name="duration">
+                        <option value="30 minutes">30 minutes</option>
+                        <option value="1 hour" selected>1 hour</option>
+                        <option value="1.5 hours">1.5 hours</option>
+                        <option value="2 hours">2 hours</option>
+                        <option value="Flexible">Flexible</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="skillDescription">Description *</label>
+                <textarea id="skillDescription" name="description" required placeholder="Describe what you'll teach, your experience, and what students will learn..." rows="5"></textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="instructorName">Your Name *</label>
+                    <input type="text" id="instructorName" name="instructor" required placeholder="Your full name">
+                </div>
+
+                <div class="form-group">
+                    <label for="skillPrice">Price *</label>
+                    <input type="text" id="skillPrice" name="price" required placeholder="e.g., Free, ₹100/hour" value="Free">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="contactInfo">Contact Information *</label>
+                <input type="text" id="contactInfo" name="contact" required placeholder="Phone number or email">
+            </div>
+
+            <div class="form-group">
+                <label for="skillRequirements">Prerequisites/Requirements</label>
+                <textarea id="skillRequirements" name="requirements" placeholder="Any prerequisites or materials students should have..." rows="3"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeSkillModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Offer Skill
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Skill Details Modal -->
+<div id="skillDetailsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="detailsTitle">Skill Details</h3>
+            <button class="modal-close" onclick="closeSkillDetailsModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="skillDetailsContent" class="modal-form">
+            <!-- Content will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allSkills = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadSkills();
+});
+
+async function loadSkills() {
+    try {
+        const response = await fetch('/api/skills');
+        allSkills = await response.json();
+        displaySkills(allSkills);
+    } catch (error) {
+        console.error('Error loading skills:', error);
+        document.getElementById('skillsList').innerHTML = `
+            <div class="error-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Error loading skills. Please try again.</p>
+                <button class="btn btn-primary" onclick="loadSkills()">Retry</button>
+            </div>
+        `;
+    }
+}
+
+function displaySkills(skills) {
+    const container = document.getElementById('skillsList');
+    
+    if (skills.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-users"></i>
+                <h3>No Skills Available</h3>
+                <p>Be the first to offer your skills to the community!</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = skills.map(skill => `
+        <div class="skill-card" data-category="${skill.category}">
+            <div class="skill-header">
+                <div class="skill-meta">
+                    <span class="category-badge ${skill.category}">${skill.category}</span>
+                    <span class="price-badge ${skill.price.toLowerCase() === 'free' ? 'free' : 'paid'}">${skill.price}</span>
+                </div>
+                <div class="skill-actions">
+                    <button class="btn-icon" onclick="viewSkillDetails('${skill._id}')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn-icon" onclick="bookSession('${skill._id}')">
+                        <i class="fas fa-calendar-plus"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="skill-content">
+                <h3>${skill.title}</h3>
+                <p class="skill-description">${skill.description.substring(0, 120)}${skill.description.length > 120 ? '...' : ''}</p>
+                
+                <div class="skill-details">
+                    <div class="detail-item">
+                        <i class="fas fa-user"></i>
+                        <span>${skill.instructor}</span>
+                    </div>
+                    <div class="detail-item">
+                        <i class="fas fa-clock"></i>
+                        <span>${skill.duration}</span>
+                    </div>
+                    <div class="detail-item">
+                        <i class="fas fa-calendar"></i>
+                        <span>${formatDate(skill.date)}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="skill-footer">
+                <div class="instructor-rating">
+                    <div class="rating-stars">
+                        ${generateStars(Math.floor(Math.random() * 2) + 4)}
+                    </div>
+                    <span class="rating-text">(${Math.floor(Math.random() * 20) + 5} reviews)</span>
+                </div>
+                <div class="skill-status">
+                    <span class="status ${skill.status}">${skill.status}</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function generateStars(rating) {
+    let stars = '';
+    for (let i = 1; i <= 5; i++) {
+        if (i <= rating) {
+            stars += '<i class="fas fa-star"></i>';
+        } else {
+            stars += '<i class="far fa-star"></i>';
+        }
+    }
+    return stars;
+}
+
+function filterSkills() {
+    const categoryFilter = document.getElementById('categoryFilter').value;
+    const priceFilter = document.getElementById('priceFilter').value;
+    const sortFilter = document.getElementById('sortFilter').value;
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+    let filteredSkills = [...allSkills];
+
+    // Apply category filter
+    if (categoryFilter) {
+        filteredSkills = filteredSkills.filter(skill => skill.category === categoryFilter);
+    }
+
+    // Apply price filter
+    if (priceFilter) {
+        if (priceFilter === 'free') {
+            filteredSkills = filteredSkills.filter(skill => skill.price.toLowerCase() === 'free');
+        } else {
+            filteredSkills = filteredSkills.filter(skill => skill.price.toLowerCase() !== 'free');
+        }
+    }
+
+    // Apply search filter
+    if (searchTerm) {
+        filteredSkills = filteredSkills.filter(skill => 
+            skill.title.toLowerCase().includes(searchTerm) ||
+            skill.description.toLowerCase().includes(searchTerm) ||
+            skill.instructor.toLowerCase().includes(searchTerm)
+        );
+    }
+
+    // Apply sorting
+    switch (sortFilter) {
+        case 'newest':
+            filteredSkills.sort((a, b) => new Date(b.date) - new Date(a.date));
+            break;
+        case 'oldest':
+            filteredSkills.sort((a, b) => new Date(a.date) - new Date(b.date));
+            break;
+        case 'category':
+            filteredSkills.sort((a, b) => a.category.localeCompare(b.category));
+            break;
+        case 'price':
+            filteredSkills.sort((a, b) => {
+                const aFree = a.price.toLowerCase() === 'free';
+                const bFree = b.price.toLowerCase() === 'free';
+                if (aFree && !bFree) return -1;
+                if (!aFree && bFree) return 1;
+                return 0;
+            });
+            break;
+    }
+
+    displaySkills(filteredSkills);
+}
+
+function openSkillModal() {
+    document.getElementById('skillModal').style.display = 'flex';
+    document.getElementById('skillForm').reset();
+    document.getElementById('modalTitle').textContent = 'Offer Your Skill';
+}
+
+function closeSkillModal() {
+    document.getElementById('skillModal').style.display = 'none';
+}
+
+function viewSkillDetails(skillId) {
+    const skill = allSkills.find(s => s._id === skillId);
+    if (!skill) return;
+
+    document.getElementById('detailsTitle').textContent = skill.title;
+    document.getElementById('skillDetailsContent').innerHTML = `
+        <div class="skill-details-content">
+            <div class="detail-section">
+                <h4><i class="fas fa-info-circle"></i> Skill Information</h4>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <strong>Category:</strong>
+                        <span class="category-badge ${skill.category}">${skill.category}</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Duration:</strong>
+                        <span>${skill.duration}</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Price:</strong>
+                        <span class="price-badge ${skill.price.toLowerCase() === 'free' ? 'free' : 'paid'}">${skill.price}</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Status:</strong>
+                        <span class="status ${skill.status}">${skill.status}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="detail-section">
+                <h4><i class="fas fa-align-left"></i> Description</h4>
+                <p>${skill.description}</p>
+            </div>
+
+            ${skill.requirements ? `
+            <div class="detail-section">
+                <h4><i class="fas fa-list-check"></i> Prerequisites</h4>
+                <p>${skill.requirements}</p>
+            </div>
+            ` : ''}
+
+            <div class="detail-section">
+                <h4><i class="fas fa-user"></i> Instructor</h4>
+                <div class="instructor-info">
+                    <div class="instructor-details">
+                        <h5>${skill.instructor}</h5>
+                        <div class="instructor-rating">
+                            <div class="rating-stars">
+                                ${generateStars(Math.floor(Math.random() * 2) + 4)}
+                            </div>
+                            <span class="rating-text">(${Math.floor(Math.random() * 20) + 5} reviews)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="detail-section">
+                <h4><i class="fas fa-calendar-plus"></i> Book Session</h4>
+                <div class="booking-actions">
+                    <button class="btn btn-primary" onclick="bookSession('${skill._id}')">
+                        <i class="fas fa-calendar-plus"></i> Book Session
+                    </button>
+                    <button class="btn btn-secondary" onclick="contactInstructor('${skill.contact}')">
+                        <i class="fas fa-phone"></i> Contact Instructor
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('skillDetailsModal').style.display = 'flex';
+}
+
+function closeSkillDetailsModal() {
+    document.getElementById('skillDetailsModal').style.display = 'none';
+}
+
+function bookSession(skillId) {
+    const skill = allSkills.find(s => s._id === skillId);
+    if (!skill) return;
+
+    showNotification(`Booking request sent to ${skill.instructor}! They will contact you soon.`, 'success');
+    closeSkillDetailsModal();
+}
+
+function contactInstructor(contact) {
+    if (contact.includes('@')) {
+        window.location.href = `mailto:${contact}`;
+    } else {
+        window.location.href = `tel:${contact}`;
+    }
+}
+
+document.getElementById('skillForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        const response = await fetch('/api/skills', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            showNotification('Skill offered successfully!', 'success');
+            closeSkillModal();
+            loadSkills();
+        } else {
+            throw new Error('Failed to offer skill');
+        }
+    } catch (error) {
+        console.error('Error offering skill:', error);
+        showNotification('Error offering skill. Please try again.', 'error');
+    }
+});
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) {
+        return 'Yesterday';
+    } else if (diffDays < 7) {
+        return `${diffDays} days ago`;
+    } else {
+        return date.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric'
+        });
+    }
+}
+
+
+
+
+
+// Close modals when clicking outside
+document.getElementById('skillModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeSkillModal();
+    }
+});
+
+document.getElementById('skillDetailsModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeSkillDetailsModal();
+    }
+});
+</script>
+
+<style>
+.skills-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.skills-list {
+    padding: 30px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 25px;
+}
+
+.skill-card {
+    border: 1px solid #f0f0f0;
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.skill-card:hover {
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    border-color: #667eea;
+    transform: translateY(-2px);
+}
+
+.skill-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.skill-meta {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.price-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.price-badge.free { background: #d4edda; color: #155724; }
+.price-badge.paid { background: #fff3cd; color: #856404; }
+
+.skill-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.skill-content h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.skill-description {
+    color: #666;
+    line-height: 1.5;
+    margin-bottom: 15px;
+}
+
+.skill-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.detail-item i {
+    color: #667eea;
+    width: 16px;
+}
+
+.skill-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 15px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.instructor-rating {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rating-stars {
+    display: flex;
+    gap: 2px;
+}
+
+.rating-stars i {
+    color: #ffc107;
+    font-size: 0.8rem;
+}
+
+.rating-text {
+    color: #666;
+    font-size: 0.8rem;
+}
+
+.skill-details-content {
+    padding: 0;
+}
+
+.detail-section {
+    margin-bottom: 25px;
+}
+
+.detail-section h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.detail-section h4 i {
+    color: #667eea;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.detail-grid .detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.detail-grid .detail-item strong {
+    color: #333;
+    font-size: 0.9rem;
+}
+
+.instructor-info {
+    background: #f8fafc;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.instructor-details h5 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.booking-actions {
+    display: flex;
+    gap: 15px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 768px) {
+    .skills-list {
+        grid-template-columns: 1fr;
+        padding: 20px;
+    }
+    
+    .skill-header {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .skill-meta {
+        flex-direction: row;
+        gap: 10px;
+    }
+    
+    .skill-footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .booking-actions {
+        flex-direction: column;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

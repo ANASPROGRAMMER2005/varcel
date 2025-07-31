@@ -1,0 +1,728 @@
+{% extends "base.html" %}
+
+{% block title %}Tech News - CampusLink{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <div class="header-content">
+            <h1><i class="fas fa-newspaper"></i> Tech News & Opportunities</h1>
+            <p>Stay updated with the latest tech news, hackathons, and internship opportunities</p>
+        </div>
+        <button class="btn btn-primary" onclick="openNewsModal()" id="addNewsBtn" style="display: none;">
+            <i class="fas fa-plus"></i> Add News
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-section">
+        <div class="filters">
+            <div class="filter-group">
+                <label for="categoryFilter">Category:</label>
+                <select id="categoryFilter" onchange="filterNews()">
+                    <option value="">All Categories</option>
+                    <option value="hackathons">Hackathons</option>
+                    <option value="internships">Internships</option>
+                    <option value="jobs">Jobs</option>
+                    <option value="tech-news">Tech News</option>
+                    <option value="startups">Startups</option>
+                    <option value="conferences">Conferences</option>
+                    <option value="courses">Courses</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="sortFilter">Sort by:</label>
+                <select id="sortFilter" onchange="filterNews()">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="category">Category</option>
+                </select>
+            </div>
+            <div class="search-group">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search news..." onkeyup="filterNews()">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Featured News -->
+    <div class="featured-section">
+        <h2><i class="fas fa-star"></i> Featured Opportunities</h2>
+        <div id="featuredNews" class="featured-grid">
+            <!-- Featured news will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- News List -->
+    <div class="news-container">
+        <div id="newsList" class="news-list">
+            <div class="loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading news...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit News Modal -->
+<div id="newsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">Add News Item</h3>
+            <button class="modal-close" onclick="closeNewsModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="newsForm" class="modal-form">
+            <div class="form-group">
+                <label for="newsTitle">Title *</label>
+                <input type="text" id="newsTitle" name="title" required placeholder="Enter news title">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="newsCategory">Category *</label>
+                    <select id="newsCategory" name="category" required>
+                        <option value="">Select Category</option>
+                        <option value="hackathons">Hackathons</option>
+                        <option value="internships">Internships</option>
+                        <option value="jobs">Jobs</option>
+                        <option value="tech-news">Tech News</option>
+                        <option value="startups">Startups</option>
+                        <option value="conferences">Conferences</option>
+                        <option value="courses">Courses</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="newsUrl">URL (Optional)</label>
+                    <input type="url" id="newsUrl" name="url" placeholder="https://example.com">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="newsContent">Content *</label>
+                <textarea id="newsContent" name="content" required placeholder="Enter news content..." rows="6"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="newsAuthor">Author</label>
+                <input type="text" id="newsAuthor" name="author" placeholder="Your name" value="Admin">
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeNewsModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save News
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- News Details Modal -->
+<div id="newsDetailsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="detailsTitle">News Details</h3>
+            <button class="modal-close" onclick="closeNewsDetailsModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="newsDetailsContent" class="modal-form">
+            <!-- Content will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allNews = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadNews();
+    checkUserRole();
+});
+
+function checkUserRole() {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (user.role === 'admin') {
+        document.getElementById('addNewsBtn').style.display = 'block';
+    }
+}
+
+async function loadNews() {
+    try {
+        const response = await fetch('/api/news');
+        allNews = await response.json();
+        displayNews(allNews);
+        displayFeaturedNews(allNews.slice(0, 3));
+    } catch (error) {
+        console.error('Error loading news:', error);
+        document.getElementById('newsList').innerHTML = `
+            <div class="error-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Error loading news. Please try again.</p>
+                <button class="btn btn-primary" onclick="loadNews()">Retry</button>
+            </div>
+        `;
+    }
+}
+
+function displayFeaturedNews(news) {
+    const container = document.getElementById('featuredNews');
+    
+    if (news.length === 0) {
+        container.innerHTML = '<p>No featured news available</p>';
+        return;
+    }
+
+    container.innerHTML = news.map(item => `
+        <div class="featured-card" onclick="viewNewsDetails('${item._id}')">
+            <div class="featured-header">
+                <span class="category-badge ${item.category}">${item.category}</span>
+                <span class="featured-date">${formatDate(item.date)}</span>
+            </div>
+            <h3>${item.title}</h3>
+            <p>${item.content.substring(0, 100)}...</p>
+            <div class="featured-footer">
+                <span class="author">By ${item.author}</span>
+                ${item.url ? '<i class="fas fa-external-link-alt"></i>' : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+function displayNews(news) {
+    const container = document.getElementById('newsList');
+    
+    if (news.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-newspaper"></i>
+                <h3>No News Found</h3>
+                <p>No news items match your search criteria.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = news.map(item => `
+        <div class="news-card" data-category="${item.category}">
+            <div class="news-header">
+                <div class="news-meta">
+                    <span class="category-badge ${item.category}">${item.category}</span>
+                    <span class="news-date">
+                        <i class="fas fa-clock"></i> ${formatDate(item.date)}
+                    </span>
+                </div>
+                <div class="news-actions">
+                    <button class="btn-icon" onclick="shareNews('${item._id}')">
+                        <i class="fas fa-share"></i>
+                    </button>
+                    ${item.url ? `
+                        <button class="btn-icon" onclick="openExternalLink('${item.url}')">
+                            <i class="fas fa-external-link-alt"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+            
+            <div class="news-content" onclick="viewNewsDetails('${item._id}')">
+                <h3>${item.title}</h3>
+                <p>${item.content.substring(0, 200)}${item.content.length > 200 ? '...' : ''}</p>
+            </div>
+            
+            <div class="news-footer">
+                <div class="author-info">
+                    <i class="fas fa-user"></i>
+                    <span>By ${item.author}</span>
+                </div>
+                <div class="news-stats">
+                    <span class="views">
+                        <i class="fas fa-eye"></i> ${Math.floor(Math.random() * 500) + 100} views
+                    </span>
+                    <span class="likes">
+                        <i class="fas fa-heart"></i> ${Math.floor(Math.random() * 50) + 10}
+                    </span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function filterNews() {
+    const categoryFilter = document.getElementById('categoryFilter').value;
+    const sortFilter = document.getElementById('sortFilter').value;
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+    let filteredNews = [...allNews];
+
+    // Apply category filter
+    if (categoryFilter) {
+        filteredNews = filteredNews.filter(item => item.category === categoryFilter);
+    }
+
+    // Apply search filter
+    if (searchTerm) {
+        filteredNews = filteredNews.filter(item => 
+            item.title.toLowerCase().includes(searchTerm) ||
+            item.content.toLowerCase().includes(searchTerm) ||
+            item.author.toLowerCase().includes(searchTerm)
+        );
+    }
+
+    // Apply sorting
+    switch (sortFilter) {
+        case 'newest':
+            filteredNews.sort((a, b) => new Date(b.date) - new Date(a.date));
+            break;
+        case 'oldest':
+            filteredNews.sort((a, b) => new Date(a.date) - new Date(b.date));
+            break;
+        case 'category':
+            filteredNews.sort((a, b) => a.category.localeCompare(b.category));
+            break;
+    }
+
+    displayNews(filteredNews);
+}
+
+function openNewsModal() {
+    document.getElementById('newsModal').style.display = 'flex';
+    document.getElementById('newsForm').reset();
+    document.getElementById('modalTitle').textContent = 'Add News Item';
+}
+
+function closeNewsModal() {
+    document.getElementById('newsModal').style.display = 'none';
+}
+
+function viewNewsDetails(newsId) {
+    const newsItem = allNews.find(n => n._id === newsId);
+    if (!newsItem) return;
+
+    document.getElementById('detailsTitle').textContent = newsItem.title;
+    document.getElementById('newsDetailsContent').innerHTML = `
+        <div class="news-details-content">
+            <div class="detail-section">
+                <div class="news-meta-detailed">
+                    <span class="category-badge ${newsItem.category}">${newsItem.category}</span>
+                    <span class="news-date">${formatDate(newsItem.date)}</span>
+                    <span class="author">By ${newsItem.author}</span>
+                </div>
+            </div>
+
+            <div class="detail-section">
+                <div class="news-content-full">
+                    ${newsItem.content.split('\n').map(paragraph => `<p>${paragraph}</p>`).join('')}
+                </div>
+            </div>
+
+            ${newsItem.url ? `
+            <div class="detail-section">
+                <h4><i class="fas fa-link"></i> External Link</h4>
+                <div class="external-link">
+                    <a href="${newsItem.url}" target="_blank" class="btn btn-primary">
+                        <i class="fas fa-external-link-alt"></i> Visit Link
+                    </a>
+                </div>
+            </div>
+            ` : ''}
+
+            <div class="detail-section">
+                <h4><i class="fas fa-share"></i> Share</h4>
+                <div class="share-actions">
+                    <button class="btn btn-secondary" onclick="shareNews('${newsItem._id}')">
+                        <i class="fas fa-share"></i> Share
+                    </button>
+                    <button class="btn btn-secondary" onclick="copyNewsLink('${newsItem._id}')">
+                        <i class="fas fa-copy"></i> Copy Link
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('newsDetailsModal').style.display = 'flex';
+}
+
+function closeNewsDetailsModal() {
+    document.getElementById('newsDetailsModal').style.display = 'none';
+}
+
+function shareNews(newsId) {
+    const newsItem = allNews.find(n => n._id === newsId);
+    if (!newsItem) return;
+
+    const url = `${window.location.origin}/news#${newsId}`;
+    
+    if (navigator.share) {
+        navigator.share({
+            title: newsItem.title,
+            text: newsItem.content.substring(0, 100) + '...',
+            url: url
+        });
+    } else {
+        copyToClipboard(url);
+    }
+}
+
+function copyNewsLink(newsId) {
+    const url = `${window.location.origin}/news#${newsId}`;
+    copyToClipboard(url);
+}
+
+function openExternalLink(url) {
+    window.open(url, '_blank');
+}
+
+document.getElementById('newsForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        const response = await fetch('/api/news', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            showNotification('News added successfully!', 'success');
+            closeNewsModal();
+            loadNews();
+        } else {
+            throw new Error('Failed to add news');
+        }
+    } catch (error) {
+        console.error('Error adding news:', error);
+        showNotification('Error adding news. Please try again.', 'error');
+    }
+});
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) {
+        return 'Yesterday';
+    } else if (diffDays < 7) {
+        return `${diffDays} days ago`;
+    } else {
+        return date.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric'
+        });
+    }
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        showNotification('Link copied to clipboard!', 'success');
+    });
+}
+
+
+
+
+
+// Close modals when clicking outside
+document.getElementById('newsModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeNewsModal();
+    }
+});
+
+document.getElementById('newsDetailsModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeNewsDetailsModal();
+    }
+});
+</script>
+
+<style>
+.featured-section {
+    margin-bottom: 40px;
+}
+
+.featured-section h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.featured-section h2 i {
+    color: #ffd700;
+}
+
+.featured-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.featured-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 25px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.featured-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(102, 126, 234, 0.3);
+}
+
+.featured-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.featured-header .category-badge {
+    background: rgba(255,255,255,0.2);
+    color: white;
+}
+
+.featured-date {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.featured-card h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.featured-card p {
+    opacity: 0.9;
+    line-height: 1.5;
+    margin-bottom: 15px;
+}
+
+.featured-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.news-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.news-list {
+    padding: 30px;
+    display: grid;
+    gap: 20px;
+}
+
+.news-card {
+    border: 1px solid #f0f0f0;
+    border-radius: 12px;
+    padding: 25px;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.news-card:hover {
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    border-color: #667eea;
+    transform: translateY(-2px);
+}
+
+.news-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.news-meta {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.news-date {
+    color: #666;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.news-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.news-content {
+    cursor: pointer;
+    margin-bottom: 15px;
+}
+
+.news-content h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.news-content p {
+    color: #666;
+    line-height: 1.6;
+}
+
+.news-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 15px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.author-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.news-stats {
+    display: flex;
+    gap: 15px;
+}
+
+.views,
+.likes {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.news-details-content {
+    padding: 0;
+}
+
+.detail-section {
+    margin-bottom: 25px;
+}
+
+.detail-section h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.detail-section h4 i {
+    color: #667eea;
+}
+
+.news-meta-detailed {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 15px;
+    background: #f8fafc;
+    border-radius: 8px;
+}
+
+.news-content-full {
+    line-height: 1.7;
+    color: #333;
+}
+
+.news-content-full p {
+    margin-bottom: 15px;
+}
+
+.external-link,
+.share-actions {
+    display: flex;
+    gap: 15px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 768px) {
+    .featured-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .news-header {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .news-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .news-footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .news-stats {
+        justify-content: space-between;
+    }
+    
+    .news-meta-detailed {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .external-link,
+    .share-actions {
+        flex-direction: column;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,833 @@
+{% extends "base.html" %}
+
+{% block title %}Polls & Feedback - CampusLink{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <div class="header-content">
+            <h1><i class="fas fa-poll"></i> Polls & Feedback</h1>
+            <p>Participate in campus polls and provide feedback to improve student services</p>
+        </div>
+        <button class="btn btn-primary" onclick="openPollModal()" id="addPollBtn" style="display: none;">
+            <i class="fas fa-plus"></i> Create Poll
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-section">
+        <div class="filters">
+            <div class="filter-group">
+                <label for="statusFilter">Status:</label>
+                <select id="statusFilter" onchange="filterPolls()">
+                    <option value="">All Polls</option>
+                    <option value="active">Active</option>
+                    <option value="closed">Closed</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="sortFilter">Sort by:</label>
+                <select id="sortFilter" onchange="filterPolls()">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="most-voted">Most Voted</option>
+                </select>
+            </div>
+            <div class="search-group">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search polls..." onkeyup="filterPolls()">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Polls List -->
+    <div class="polls-container">
+        <div id="pollsList" class="polls-list">
+            <div class="loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading polls...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Poll Modal -->
+<div id="pollModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">Create New Poll</h3>
+            <button class="modal-close" onclick="closePollModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="pollForm" class="modal-form">
+            <div class="form-group">
+                <label for="pollQuestion">Poll Question *</label>
+                <input type="text" id="pollQuestion" name="question" required placeholder="Enter your poll question">
+            </div>
+
+            <div class="form-group">
+                <label>Poll Options *</label>
+                <div id="pollOptions">
+                    <div class="option-input">
+                        <input type="text" name="option" placeholder="Option 1" required>
+                        <button type="button" class="btn-icon remove-option" onclick="removeOption(this)" style="display: none;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="option-input">
+                        <input type="text" name="option" placeholder="Option 2" required>
+                        <button type="button" class="btn-icon remove-option" onclick="removeOption(this)" style="display: none;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-secondary btn-small" onclick="addOption()">
+                    <i class="fas fa-plus"></i> Add Option
+                </button>
+            </div>
+
+            <div class="form-group">
+                <label for="pollAuthor">Author</label>
+                <input type="text" id="pollAuthor" name="author" placeholder="Your name" value="Admin">
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closePollModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Create Poll
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Poll Results Modal -->
+<div id="pollResultsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="resultsTitle">Poll Results</h3>
+            <button class="modal-close" onclick="closePollResultsModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="pollResultsContent" class="modal-form">
+            <!-- Content will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allPolls = [];
+let votedPolls = JSON.parse(localStorage.getItem('votedPolls') || '[]');
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadPolls();
+    checkUserRole();
+});
+
+function checkUserRole() {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (user.role === 'admin') {
+        document.getElementById('addPollBtn').style.display = 'block';
+    }
+}
+
+async function loadPolls() {
+    try {
+        const response = await fetch('/api/polls');
+        allPolls = await response.json();
+        displayPolls(allPolls);
+    } catch (error) {
+        console.error('Error loading polls:', error);
+        document.getElementById('pollsList').innerHTML = `
+            <div class="error-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Error loading polls. Please try again.</p>
+                <button class="btn btn-primary" onclick="loadPolls()">Retry</button>
+            </div>
+        `;
+    }
+}
+
+function displayPolls(polls) {
+    const container = document.getElementById('pollsList');
+    
+    if (polls.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-poll"></i>
+                <h3>No Polls Available</h3>
+                <p>No polls match your search criteria.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = polls.map(poll => {
+        const totalVotes = Object.values(poll.votes).reduce((sum, votes) => sum + votes, 0);
+        const hasVoted = votedPolls.includes(poll._id);
+        
+        return `
+            <div class="poll-card" data-status="${poll.status}">
+                <div class="poll-header">
+                    <div class="poll-meta">
+                        <span class="status-badge ${poll.status}">${poll.status}</span>
+                        <span class="poll-date">
+                            <i class="fas fa-clock"></i> ${formatDate(poll.date)}
+                        </span>
+                    </div>
+                    <div class="poll-actions">
+                        <button class="btn-icon" onclick="viewPollResults('${poll._id}')">
+                            <i class="fas fa-chart-bar"></i>
+                        </button>
+                        <button class="btn-icon" onclick="sharePoll('${poll._id}')">
+                            <i class="fas fa-share"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="poll-content">
+                    <h3>${poll.question}</h3>
+                    
+                    <div class="poll-options">
+                        ${poll.options.map(option => {
+                            const votes = poll.votes[option] || 0;
+                            const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+                            
+                            return `
+                                <div class="poll-option ${hasVoted ? 'voted' : ''}" 
+                                     onclick="${hasVoted || poll.status === 'closed' ? '' : `vote('${poll._id}', '${option}')`}">
+                                    <div class="option-content">
+                                        <span class="option-text">${option}</span>
+                                        <span class="option-votes">${votes} votes (${percentage}%)</span>
+                                    </div>
+                                    <div class="option-bar">
+                                        <div class="option-fill" style="width: ${percentage}%"></div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+                
+                <div class="poll-footer">
+                    <div class="poll-stats">
+                        <span><i class="fas fa-users"></i> ${totalVotes} total votes</span>
+                        <span><i class="fas fa-user"></i> By ${poll.author}</span>
+                    </div>
+                    <div class="poll-status-info">
+                        ${hasVoted ? '<span class="voted-indicator"><i class="fas fa-check"></i> Voted</span>' : ''}
+                        ${poll.status === 'closed' ? '<span class="closed-indicator"><i class="fas fa-lock"></i> Closed</span>' : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterPolls() {
+    const statusFilter = document.getElementById('statusFilter').value;
+    const sortFilter = document.getElementById('sortFilter').value;
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+    let filteredPolls = [...allPolls];
+
+    // Apply status filter
+    if (statusFilter) {
+        filteredPolls = filteredPolls.filter(poll => poll.status === statusFilter);
+    }
+
+    // Apply search filter
+    if (searchTerm) {
+        filteredPolls = filteredPolls.filter(poll => 
+            poll.question.toLowerCase().includes(searchTerm) ||
+            poll.author.toLowerCase().includes(searchTerm) ||
+            poll.options.some(option => option.toLowerCase().includes(searchTerm))
+        );
+    }
+
+    // Apply sorting
+    switch (sortFilter) {
+        case 'newest':
+            filteredPolls.sort((a, b) => new Date(b.date) - new Date(a.date));
+            break;
+        case 'oldest':
+            filteredPolls.sort((a, b) => new Date(a.date) - new Date(b.date));
+            break;
+        case 'most-voted':
+            filteredPolls.sort((a, b) => {
+                const totalA = Object.values(a.votes).reduce((sum, votes) => sum + votes, 0);
+                const totalB = Object.values(b.votes).reduce((sum, votes) => sum + votes, 0);
+                return totalB - totalA;
+            });
+            break;
+    }
+
+    displayPolls(filteredPolls);
+}
+
+async function vote(pollId, option) {
+    if (votedPolls.includes(pollId)) {
+        showNotification('You have already voted in this poll!', 'warning');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/polls', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                poll_id: pollId,
+                option: option,
+                voter_id: 'user_' + Date.now() // Simple voter ID
+            })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            votedPolls.push(pollId);
+            localStorage.setItem('votedPolls', JSON.stringify(votedPolls));
+            showNotification('Vote submitted successfully!', 'success');
+            loadPolls(); // Reload to show updated results
+        } else {
+            showNotification(result.message || 'Failed to submit vote', 'error');
+        }
+    } catch (error) {
+        console.error('Error voting:', error);
+        showNotification('Error submitting vote. Please try again.', 'error');
+    }
+}
+
+function viewPollResults(pollId) {
+    const poll = allPolls.find(p => p._id === pollId);
+    if (!poll) return;
+
+    const totalVotes = Object.values(poll.votes).reduce((sum, votes) => sum + votes, 0);
+
+    document.getElementById('resultsTitle').textContent = 'Poll Results';
+    document.getElementById('pollResultsContent').innerHTML = `
+        <div class="poll-results-content">
+            <div class="results-header">
+                <h4>${poll.question}</h4>
+                <div class="results-meta">
+                    <span class="status-badge ${poll.status}">${poll.status}</span>
+                    <span>Total Votes: ${totalVotes}</span>
+                    <span>Created: ${formatDate(poll.date)}</span>
+                </div>
+            </div>
+
+            <div class="results-chart">
+                ${poll.options.map(option => {
+                    const votes = poll.votes[option] || 0;
+                    const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+                    
+                    return `
+                        <div class="result-item">
+                            <div class="result-header">
+                                <span class="option-name">${option}</span>
+                                <span class="result-stats">${votes} votes (${percentage}%)</span>
+                            </div>
+                            <div class="result-bar">
+                                <div class="result-fill" style="width: ${percentage}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+
+            <div class="results-footer">
+                <div class="poll-info">
+                    <p><strong>Author:</strong> ${poll.author}</p>
+                    <p><strong>Status:</strong> ${poll.status}</p>
+                    <p><strong>Total Participants:</strong> ${totalVotes}</p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('pollResultsModal').style.display = 'flex';
+}
+
+function closePollResultsModal() {
+    document.getElementById('pollResultsModal').style.display = 'none';
+}
+
+function sharePoll(pollId) {
+    const poll = allPolls.find(p => p._id === pollId);
+    if (!poll) return;
+
+    const url = `${window.location.origin}/polls#${pollId}`;
+    
+    if (navigator.share) {
+        navigator.share({
+            title: 'Campus Poll',
+            text: poll.question,
+            url: url
+        });
+    } else {
+        navigator.clipboard.writeText(url).then(() => {
+            showNotification('Poll link copied to clipboard!', 'success');
+        });
+    }
+}
+
+function openPollModal() {
+    document.getElementById('pollModal').style.display = 'flex';
+    document.getElementById('pollForm').reset();
+    resetPollOptions();
+}
+
+function closePollModal() {
+    document.getElementById('pollModal').style.display = 'none';
+}
+
+function addOption() {
+    const optionsContainer = document.getElementById('pollOptions');
+    const optionCount = optionsContainer.children.length;
+    
+    if (optionCount >= 6) {
+        showNotification('Maximum 6 options allowed', 'warning');
+        return;
+    }
+
+    const optionDiv = document.createElement('div');
+    optionDiv.className = 'option-input';
+    optionDiv.innerHTML = `
+        <input type="text" name="option" placeholder="Option ${optionCount + 1}" required>
+        <button type="button" class="btn-icon remove-option" onclick="removeOption(this)">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    
+    optionsContainer.appendChild(optionDiv);
+    updateRemoveButtons();
+}
+
+function removeOption(button) {
+    const optionsContainer = document.getElementById('pollOptions');
+    if (optionsContainer.children.length > 2) {
+        button.parentElement.remove();
+        updateRemoveButtons();
+        updateOptionPlaceholders();
+    }
+}
+
+function updateRemoveButtons() {
+    const optionsContainer = document.getElementById('pollOptions');
+    const removeButtons = optionsContainer.querySelectorAll('.remove-option');
+    
+    removeButtons.forEach(button => {
+        button.style.display = optionsContainer.children.length > 2 ? 'block' : 'none';
+    });
+}
+
+function updateOptionPlaceholders() {
+    const optionsContainer = document.getElementById('pollOptions');
+    const inputs = optionsContainer.querySelectorAll('input[name="option"]');
+    
+    inputs.forEach((input, index) => {
+        input.placeholder = `Option ${index + 1}`;
+    });
+}
+
+function resetPollOptions() {
+    const optionsContainer = document.getElementById('pollOptions');
+    optionsContainer.innerHTML = `
+        <div class="option-input">
+            <input type="text" name="option" placeholder="Option 1" required>
+            <button type="button" class="btn-icon remove-option" onclick="removeOption(this)" style="display: none;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="option-input">
+            <input type="text" name="option" placeholder="Option 2" required>
+            <button type="button" class="btn-icon remove-option" onclick="removeOption(this)" style="display: none;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+}
+
+document.getElementById('pollForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const question = formData.get('question');
+    const author = formData.get('author');
+    const options = formData.getAll('option').filter(option => option.trim() !== '');
+    
+    if (options.length < 2) {
+        showNotification('Please provide at least 2 options', 'error');
+        return;
+    }
+
+    const data = {
+        question: question,
+        options: options,
+        author: author
+    };
+    
+    try {
+        const response = await fetch('/api/polls', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            showNotification('Poll created successfully!', 'success');
+            closePollModal();
+            loadPolls();
+        } else {
+            throw new Error('Failed to create poll');
+        }
+    } catch (error) {
+        console.error('Error creating poll:', error);
+        showNotification('Error creating poll. Please try again.', 'error');
+    }
+});
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) {
+        return 'Yesterday';
+    } else if (diffDays < 7) {
+        return `${diffDays} days ago`;
+    } else {
+        return date.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric'
+        });
+    }
+}
+
+
+
+
+
+// Close modals when clicking outside
+document.getElementById('pollModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closePollModal();
+    }
+});
+
+document.getElementById('pollResultsModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closePollResultsModal();
+    }
+});
+</script>
+
+<style>
+.polls-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.polls-list {
+    padding: 30px;
+    display: grid;
+    gap: 25px;
+}
+
+.poll-card {
+    border: 1px solid #f0f0f0;
+    border-radius: 12px;
+    padding: 25px;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.poll-card:hover {
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    border-color: #667eea;
+    transform: translateY(-2px);
+}
+
+.poll-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.poll-meta {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.poll-date {
+    color: #666;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.poll-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.poll-content h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.poll-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.poll-option {
+    border: 2px solid #f0f0f0;
+    border-radius: 8px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.poll-option:not(.voted):hover {
+    border-color: #667eea;
+    background: #f8fafc;
+}
+
+.poll-option.voted {
+    cursor: default;
+}
+
+.option-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+}
+
+.option-text {
+    font-weight: 500;
+    color: #333;
+}
+
+.option-votes {
+    font-size: 0.9rem;
+    color: #666;
+    font-weight: 600;
+}
+
+.option-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #f0f0f0;
+    border-radius: 0 0 6px 6px;
+}
+
+.option-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 0 0 6px 6px;
+    transition: width 0.5s ease;
+}
+
+.poll-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.poll-stats {
+    display: flex;
+    gap: 20px;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.poll-stats span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.poll-status-info {
+    display: flex;
+    gap: 10px;
+}
+
+.voted-indicator,
+.closed-indicator {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.voted-indicator {
+    color: #28a745;
+}
+
+.closed-indicator {
+    color: #dc3545;
+}
+
+.option-input {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.option-input input {
+    flex: 1;
+}
+
+.btn-small {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+}
+
+.poll-results-content {
+    padding: 0;
+}
+
+.results-header {
+    margin-bottom: 25px;
+}
+
+.results-header h4 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.results-meta {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.results-chart {
+    margin-bottom: 25px;
+}
+
+.result-item {
+    margin-bottom: 20px;
+}
+
+.result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.option-name {
+    font-weight: 600;
+    color: #333;
+}
+
+.result-stats {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.result-bar {
+    height: 12px;
+    background: #f0f0f0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.result-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 6px;
+    transition: width 0.5s ease;
+}
+
+.results-footer {
+    background: #f8fafc;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.poll-info p {
+    margin-bottom: 8px;
+    color: #666;
+}
+
+@media (max-width: 768px) {
+    .poll-header {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .poll-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .poll-footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .poll-stats {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .option-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .results-meta {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .result-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+}
+</style>
+{% endblock %}

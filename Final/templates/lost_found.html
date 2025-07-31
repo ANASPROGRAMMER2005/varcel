@@ -1,0 +1,593 @@
+{% extends "base.html" %}
+
+{% block title %}Lost & Found - CampusLink{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <div class="header-content">
+            <h1><i class="fas fa-search"></i> Lost & Found</h1>
+            <p>Help find lost items or report items you've found on campus</p>
+        </div>
+        <button class="btn btn-primary" onclick="openItemModal()">
+            <i class="fas fa-plus"></i> Report Item
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-section">
+        <div class="filters">
+            <div class="filter-group">
+                <label for="typeFilter">Type:</label>
+                <select id="typeFilter" onchange="filterItems()">
+                    <option value="">All Items</option>
+                    <option value="lost">Lost Items</option>
+                    <option value="found">Found Items</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="categoryFilter">Category:</label>
+                <select id="categoryFilter" onchange="filterItems()">
+                    <option value="">All Categories</option>
+                    <option value="electronics">Electronics</option>
+                    <option value="books">Books & Stationery</option>
+                    <option value="clothing">Clothing</option>
+                    <option value="accessories">Accessories</option>
+                    <option value="documents">Documents</option>
+                    <option value="keys">Keys</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="sortFilter">Sort by:</label>
+                <select id="sortFilter" onchange="filterItems()">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="category">Category</option>
+                </select>
+            </div>
+            <div class="search-group">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search items..." onkeyup="filterItems()">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Items List -->
+    <div class="items-container">
+        <div id="itemsList" class="items-list">
+            <div class="loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading items...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Item Modal -->
+<div id="itemModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">Report Item</h3>
+            <button class="modal-close" onclick="closeItemModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="itemForm" class="modal-form">
+            <div class="form-group">
+                <label for="itemType">Type *</label>
+                <select id="itemType" name="type" required>
+                    <option value="">Select Type</option>
+                    <option value="lost">Lost Item</option>
+                    <option value="found">Found Item</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="itemTitle">Item Name *</label>
+                <input type="text" id="itemTitle" name="title" required placeholder="e.g., iPhone 12, Blue Backpack">
+            </div>
+
+            <div class="form-group">
+                <label for="itemCategory">Category *</label>
+                <select id="itemCategory" name="category" required>
+                    <option value="">Select Category</option>
+                    <option value="electronics">Electronics</option>
+                    <option value="books">Books & Stationery</option>
+                    <option value="clothing">Clothing</option>
+                    <option value="accessories">Accessories</option>
+                    <option value="documents">Documents</option>
+                    <option value="keys">Keys</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="itemDescription">Description *</label>
+                <textarea id="itemDescription" name="description" required placeholder="Provide detailed description including color, brand, distinctive features..." rows="4"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="itemLocation">Location *</label>
+                <input type="text" id="itemLocation" name="location" required placeholder="Where was it lost/found? (e.g., Library, Cafeteria, Hostel Block A)">
+            </div>
+
+            <div class="form-group">
+                <label for="itemContact">Contact Information *</label>
+                <input type="text" id="itemContact" name="contact" required placeholder="Phone number or email">
+            </div>
+
+            <div class="form-group">
+                <label for="itemImage">Image (Optional)</label>
+                <input type="file" id="itemImage" name="image" accept="image/*">
+                <small>Upload a photo to help identify the item</small>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeItemModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Report Item
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Item Details Modal -->
+<div id="itemDetailsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="detailsTitle">Item Details</h3>
+            <button class="modal-close" onclick="closeItemDetailsModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="itemDetailsContent" class="modal-form">
+            <!-- Content will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allItems = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadItems();
+});
+
+async function loadItems() {
+    try {
+        const response = await fetch('/api/lost-found');
+        allItems = await response.json();
+        displayItems(allItems);
+    } catch (error) {
+        console.error('Error loading items:', error);
+        document.getElementById('itemsList').innerHTML = `
+            <div class="error-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Error loading items. Please try again.</p>
+                <button class="btn btn-primary" onclick="loadItems()">Retry</button>
+            </div>
+        `;
+    }
+}
+
+function displayItems(items) {
+    const container = document.getElementById('itemsList');
+    
+    if (items.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-search"></i>
+                <h3>No Items Found</h3>
+                <p>No items match your search criteria. Try adjusting your filters.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = items.map(item => `
+        <div class="item-card" data-category="${item.category}" data-type="${item.type}">
+            <div class="item-header">
+                <div class="item-meta">
+                    <span class="item-type ${item.type}">${item.type}</span>
+                    <span class="category-badge ${item.category}">${item.category}</span>
+                </div>
+                <div class="item-actions">
+                    <button class="btn-icon" onclick="viewItemDetails('${item._id}')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn-icon" onclick="contactOwner('${item.contact}')">
+                        <i class="fas fa-phone"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="item-content">
+                <h3>${item.title}</h3>
+                <p class="item-description">${item.description.substring(0, 120)}${item.description.length > 120 ? '...' : ''}</p>
+                
+                <div class="item-details">
+                    <div class="detail-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>${item.location}</span>
+                    </div>
+                    <div class="detail-item">
+                        <i class="fas fa-clock"></i>
+                        <span>${formatDate(item.date)}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="item-footer">
+                <div class="contact-info">
+                    <i class="fas fa-user"></i>
+                    <span>Contact available</span>
+                </div>
+                <div class="item-status">
+                    <span class="status ${item.status}">${item.status}</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function filterItems() {
+    const typeFilter = document.getElementById('typeFilter').value;
+    const categoryFilter = document.getElementById('categoryFilter').value;
+    const sortFilter = document.getElementById('sortFilter').value;
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+    let filteredItems = [...allItems];
+
+    // Apply type filter
+    if (typeFilter) {
+        filteredItems = filteredItems.filter(item => item.type === typeFilter);
+    }
+
+    // Apply category filter
+    if (categoryFilter) {
+        filteredItems = filteredItems.filter(item => item.category === categoryFilter);
+    }
+
+    // Apply search filter
+    if (searchTerm) {
+        filteredItems = filteredItems.filter(item => 
+            item.title.toLowerCase().includes(searchTerm) ||
+            item.description.toLowerCase().includes(searchTerm) ||
+            item.location.toLowerCase().includes(searchTerm)
+        );
+    }
+
+    // Apply sorting
+    switch (sortFilter) {
+        case 'newest':
+            filteredItems.sort((a, b) => new Date(b.date) - new Date(a.date));
+            break;
+        case 'oldest':
+            filteredItems.sort((a, b) => new Date(a.date) - new Date(b.date));
+            break;
+        case 'category':
+            filteredItems.sort((a, b) => a.category.localeCompare(b.category));
+            break;
+    }
+
+    displayItems(filteredItems);
+}
+
+function openItemModal() {
+    document.getElementById('itemModal').style.display = 'flex';
+    document.getElementById('itemForm').reset();
+    document.getElementById('modalTitle').textContent = 'Report Item';
+}
+
+function closeItemModal() {
+    document.getElementById('itemModal').style.display = 'none';
+}
+
+function viewItemDetails(itemId) {
+    const item = allItems.find(i => i._id === itemId);
+    if (!item) return;
+
+    document.getElementById('detailsTitle').textContent = item.title;
+    document.getElementById('itemDetailsContent').innerHTML = `
+        <div class="item-details-content">
+            <div class="detail-section">
+                <h4><i class="fas fa-info-circle"></i> Item Information</h4>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <strong>Type:</strong>
+                        <span class="item-type ${item.type}">${item.type}</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Category:</strong>
+                        <span class="category-badge ${item.category}">${item.category}</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Status:</strong>
+                        <span class="status ${item.status}">${item.status}</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Date:</strong>
+                        <span>${formatDate(item.date)}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="detail-section">
+                <h4><i class="fas fa-align-left"></i> Description</h4>
+                <p>${item.description}</p>
+            </div>
+
+            <div class="detail-section">
+                <h4><i class="fas fa-map-marker-alt"></i> Location</h4>
+                <p>${item.location}</p>
+            </div>
+
+            <div class="detail-section">
+                <h4><i class="fas fa-phone"></i> Contact Information</h4>
+                <div class="contact-actions">
+                    <button class="btn btn-primary" onclick="contactOwner('${item.contact}')">
+                        <i class="fas fa-phone"></i> Contact Owner
+                    </button>
+                    <button class="btn btn-secondary" onclick="copyContact('${item.contact}')">
+                        <i class="fas fa-copy"></i> Copy Contact
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('itemDetailsModal').style.display = 'flex';
+}
+
+function closeItemDetailsModal() {
+    document.getElementById('itemDetailsModal').style.display = 'none';
+}
+
+function contactOwner(contact) {
+    // Check if it's a phone number or email
+    if (contact.includes('@')) {
+        window.location.href = `mailto:${contact}`;
+    } else {
+        window.location.href = `tel:${contact}`;
+    }
+}
+
+function copyContact(contact) {
+    navigator.clipboard.writeText(contact).then(() => {
+        showNotification('Contact information copied to clipboard!', 'success');
+    });
+}
+
+document.getElementById('itemForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        const response = await fetch('/api/lost-found', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            showNotification('Item reported successfully!', 'success');
+            closeItemModal();
+            loadItems();
+        } else {
+            throw new Error('Failed to report item');
+        }
+    } catch (error) {
+        console.error('Error reporting item:', error);
+        showNotification('Error reporting item. Please try again.', 'error');
+    }
+});
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) {
+        return 'Yesterday';
+    } else if (diffDays < 7) {
+        return `${diffDays} days ago`;
+    } else {
+        return date.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric'
+        });
+    }
+}
+
+
+
+
+
+// Close modals when clicking outside
+document.getElementById('itemModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeItemModal();
+    }
+});
+
+document.getElementById('itemDetailsModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeItemDetailsModal();
+    }
+});
+</script>
+
+<style>
+.items-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.items-list {
+    padding: 30px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 25px;
+}
+
+.item-card {
+    border: 1px solid #f0f0f0;
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.item-card:hover {
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    border-color: #667eea;
+    transform: translateY(-2px);
+}
+
+.item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.item-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.item-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.item-content h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.item-description {
+    color: #666;
+    line-height: 1.5;
+    margin-bottom: 15px;
+}
+
+.item-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.detail-item i {
+    color: #667eea;
+    width: 16px;
+}
+
+.item-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 15px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.contact-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.item-details-content {
+    padding: 0;
+}
+
+.detail-section {
+    margin-bottom: 25px;
+}
+
+.detail-section h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.detail-section h4 i {
+    color: #667eea;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.detail-grid .detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.detail-grid .detail-item strong {
+    color: #333;
+    font-size: 0.9rem;
+}
+
+.contact-actions {
+    display: flex;
+    gap: 15px;
+}
+
+@media (max-width: 768px) {
+    .items-list {
+        grid-template-columns: 1fr;
+        padding: 20px;
+    }
+    
+    .item-header {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .item-meta {
+        flex-direction: row;
+        gap: 10px;
+    }
+    
+    .contact-actions {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}

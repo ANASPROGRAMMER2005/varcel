@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - CampusLink{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <!-- Welcome Section -->
+    <div class="dashboard-header">
+        <div class="welcome-section">
+            <h1>Welcome back, <span id="userName">Student</span>! 👋</h1>
+            <p>Here's what's happening on your campus today</p>
+        </div>
+        <div class="quick-stats">
+            <div class="stat-card">
+                <i class="fas fa-bullhorn"></i>
+                <div class="stat-info">
+                    <span class="stat-number" id="announcementCount">0</span>
+                    <span class="stat-label">New Announcements</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div class="stat-info">
+                    <span class="stat-number" id="complaintCount">0</span>
+                    <span class="stat-label">Active Complaints</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-search"></i>
+                <div class="stat-info">
+                    <span class="stat-number" id="lostFoundCount">0</span>
+                    <span class="stat-label">Lost Items</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <h2>Quick Actions</h2>
+        <div class="actions-grid">
+            <a href="{{ url_for('announcements') }}" class="action-card">
+                <i class="fas fa-bullhorn"></i>
+                <h3>View Announcements</h3>
+                <p>Check latest campus updates</p>
+            </a>
+            <a href="{{ url_for('lost_found') }}" class="action-card">
+                <i class="fas fa-plus-circle"></i>
+                <h3>Report Lost Item</h3>
+                <p>Help find your belongings</p>
+            </a>
+            <a href="{{ url_for('timetable') }}" class="action-card">
+                <i class="fas fa-calendar-plus"></i>
+                <h3>Add to Timetable</h3>
+                <p>Schedule your classes</p>
+            </a>
+            <a href="{{ url_for('complaints') }}" class="action-card">
+                <i class="fas fa-file-alt"></i>
+                <h3>File Complaint</h3>
+                <p>Report hostel issues</p>
+            </a>
+        </div>
+    </div>
+
+    <!-- Dashboard Content Grid -->
+    <div class="dashboard-grid">
+        <!-- Recent Announcements -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h3><i class="fas fa-bullhorn"></i> Recent Announcements</h3>
+                <a href="{{ url_for('announcements') }}" class="view-all">View All</a>
+            </div>
+            <div class="card-content">
+                <div id="recentAnnouncements" class="announcements-list">
+                    <div class="loading">Loading announcements...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Today's Schedule -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h3><i class="fas fa-calendar"></i> Today's Schedule</h3>
+                <a href="{{ url_for('timetable') }}" class="view-all">View Full</a>
+            </div>
+            <div class="card-content">
+                <div id="todaySchedule" class="schedule-list">
+                    <div class="loading">Loading schedule...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Lost & Found -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h3><i class="fas fa-search"></i> Recent Lost & Found</h3>
+                <a href="{{ url_for('lost_found') }}" class="view-all">View All</a>
+            </div>
+            <div class="card-content">
+                <div id="recentLostFound" class="lost-found-list">
+                    <div class="loading">Loading items...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Complaints -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h3><i class="fas fa-exclamation-triangle"></i> My Complaints</h3>
+                <a href="{{ url_for('complaints') }}" class="view-all">View All</a>
+            </div>
+            <div class="card-content">
+                <div id="myComplaints" class="complaints-list">
+                    <div class="loading">Loading complaints...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Polls -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h3><i class="fas fa-poll"></i> Active Polls</h3>
+                <a href="{{ url_for('polls') }}" class="view-all">View All</a>
+            </div>
+            <div class="card-content">
+                <div id="activePolls" class="polls-list">
+                    <div class="loading">Loading polls...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Skill Exchange -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h3><i class="fas fa-users"></i> Skill Exchange</h3>
+                <a href="{{ url_for('skills') }}" class="view-all">View All</a>
+            </div>
+            <div class="card-content">
+                <div id="skillExchange" class="skills-list">
+                    <div class="loading">Loading skills...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load user info
+    loadUserInfo();
+    
+    // Load dashboard data
+    loadDashboardData();
+});
+
+function loadUserInfo() {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (user.name) {
+        document.getElementById('userName').textContent = user.name;
+    }
+}
+
+async function loadDashboardData() {
+    try {
+        // Load recent announcements
+        const announcements = await fetch('/api/announcements').then(r => r.json());
+        displayRecentAnnouncements(announcements.slice(0, 3));
+        document.getElementById('announcementCount').textContent = announcements.length;
+
+        // Load today's schedule
+        const timetable = await fetch('/api/timetable?user_id=default').then(r => r.json());
+        displayTodaySchedule(timetable);
+
+        // Load recent lost & found
+        const lostFound = await fetch('/api/lost-found').then(r => r.json());
+        displayRecentLostFound(lostFound.slice(0, 3));
+        document.getElementById('lostFoundCount').textContent = lostFound.filter(item => item.type === 'lost').length;
+
+        // Load complaints
+        const complaints = await fetch('/api/complaints').then(r => r.json());
+        displayMyComplaints(complaints.slice(0, 3));
+        document.getElementById('complaintCount').textContent = complaints.filter(c => c.status === 'pending').length;
+
+        // Load active polls
+        const polls = await fetch('/api/polls').then(r => r.json());
+        displayActivePolls(polls.slice(0, 2));
+
+        // Load skill exchange
+        const skills = await fetch('/api/skills').then(r => r.json());
+        displaySkillExchange(skills.slice(0, 3));
+
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+    }
+}
+
+function displayRecentAnnouncements(announcements) {
+    const container = document.getElementById('recentAnnouncements');
+    
+    if (announcements.length === 0) {
+        container.innerHTML = '<div class="empty-state">No announcements yet</div>';
+        return;
+    }
+
+    container.innerHTML = announcements.map(announcement => `
+        <div class="announcement-item">
+            <div class="announcement-header">
+                <h4>${announcement.title}</h4>
+                <span class="announcement-category">${announcement.category}</span>
+            </div>
+            <p>${announcement.content.substring(0, 100)}...</p>
+            <div class="announcement-meta">
+                <span><i class="fas fa-user"></i> ${announcement.author}</span>
+                <span><i class="fas fa-clock"></i> ${formatDate(announcement.date)}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function displayTodaySchedule(timetable) {
+    const container = document.getElementById('todaySchedule');
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    
+    const todayClasses = timetable.schedule ? 
+        timetable.schedule.filter(item => item.day === today) : [];
+
+    if (todayClasses.length === 0) {
+        container.innerHTML = '<div class="empty-state">No classes scheduled for today</div>';
+        return;
+    }
+
+    container.innerHTML = todayClasses.map(classItem => `
+        <div class="schedule-item">
+            <div class="schedule-time">${classItem.time}</div>
+            <div class="schedule-details">
+                <h4>${classItem.subject}</h4>
+                <p><i class="fas fa-map-marker-alt"></i> ${classItem.room}</p>
+                <p><i class="fas fa-user"></i> ${classItem.professor}</p>
+            </div>
+        </div>
+    `).join('');
+}
+
+function displayRecentLostFound(items) {
+    const container = document.getElementById('recentLostFound');
+    
+    if (items.length === 0) {
+        container.innerHTML = '<div class="empty-state">No recent lost & found items</div>';
+        return;
+    }
+
+    container.innerHTML = items.map(item => `
+        <div class="lost-found-item">
+            <div class="item-header">
+                <h4>${item.title}</h4>
+                <span class="item-type ${item.type}">${item.type}</span>
+            </div>
+            <p>${item.description.substring(0, 80)}...</p>
+            <div class="item-meta">
+                <span><i class="fas fa-map-marker-alt"></i> ${item.location}</span>
+                <span><i class="fas fa-clock"></i> ${formatDate(item.date)}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function displayMyComplaints(complaints) {
+    const container = document.getElementById('myComplaints');
+    
+    if (complaints.length === 0) {
+        container.innerHTML = '<div class="empty-state">No complaints filed</div>';
+        return;
+    }
+
+    container.innerHTML = complaints.map(complaint => `
+        <div class="complaint-item">
+            <div class="complaint-header">
+                <h4>${complaint.title}</h4>
+                <span class="status ${complaint.status}">${complaint.status}</span>
+            </div>
+            <p>${complaint.description.substring(0, 80)}...</p>
+            <div class="complaint-meta">
+                <span><i class="fas fa-tag"></i> ${complaint.category}</span>
+                <span><i class="fas fa-clock"></i> ${formatDate(complaint.date)}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function displayActivePolls(polls) {
+    const container = document.getElementById('activePolls');
+    
+    if (polls.length === 0) {
+        container.innerHTML = '<div class="empty-state">No active polls</div>';
+        return;
+    }
+
+    container.innerHTML = polls.map(poll => `
+        <div class="poll-item">
+            <h4>${poll.question}</h4>
+            <div class="poll-options">
+                ${poll.options.slice(0, 2).map(option => `
+                    <div class="poll-option">
+                        <span>${option}</span>
+                        <span class="vote-count">${poll.votes[option] || 0} votes</span>
+                    </div>
+                `).join('')}
+            </div>
+            <a href="/polls" class="poll-link">Vote Now</a>
+        </div>
+    `).join('');
+}
+
+function displaySkillExchange(skills) {
+    const container = document.getElementById('skillExchange');
+    
+    if (skills.length === 0) {
+        container.innerHTML = '<div class="empty-state">No skills available</div>';
+        return;
+    }
+
+    container.innerHTML = skills.map(skill => `
+        <div class="skill-item">
+            <div class="skill-header">
+                <h4>${skill.title}</h4>
+                <span class="skill-price">${skill.price}</span>
+            </div>
+            <p>${skill.description.substring(0, 60)}...</p>
+            <div class="skill-meta">
+                <span><i class="fas fa-user"></i> ${skill.instructor}</span>
+                <span><i class="fas fa-clock"></i> ${skill.duration}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+</script>
+{% endblock %}
